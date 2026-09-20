@@ -846,6 +846,47 @@ describe('Routing', () => {
       expect(await res.text()).toBe('posts of %25')
     })
   })
+
+  describe('Suffix wildcard with a sub-app that falls back to TrieRouter', () => {
+    const app = new Hono()
+    const sub = new Hono()
+    sub.post('/items', (c) => c.text('items'))
+    sub.post('/:slug', (c) => c.text('slug'))
+    app.route('/api', sub)
+    app.get('/assets*', (c) => c.text('ok'))
+    app.get('/users/:id/avatar*', (c) => c.text(`avatar of ${c.req.param('id')}`))
+
+    it('Should return 200 for /assets/app.js', async () => {
+      const res = await app.request('http://localhost/assets/app.js')
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe('ok')
+    })
+
+    it('Should return 200 for /assets and /assets-v2', async () => {
+      expect((await app.request('http://localhost/assets')).status).toBe(200)
+      expect((await app.request('http://localhost/assets-v2')).status).toBe(200)
+    })
+
+    it('Should return 404 for /asset', async () => {
+      const res = await app.request('http://localhost/asset')
+      expect(res.status).toBe(404)
+    })
+
+    it('Should compose with params', async () => {
+      const res = await app.request('http://localhost/users/42/avatar.png')
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe('avatar of 42')
+    })
+
+    it('Should keep sub-app routes working', async () => {
+      expect(
+        await (await app.request('http://localhost/api/items', { method: 'POST' })).text()
+      ).toBe('items')
+      expect(await (await app.request('http://localhost/api/foo', { method: 'POST' })).text()).toBe(
+        'slug'
+      )
+    })
+  })
 })
 
 describe('param and query', () => {

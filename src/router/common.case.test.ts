@@ -902,6 +902,69 @@ export const runTest = ({
       })
     })
 
+    describe('Suffix wildcard', () => {
+      beforeEach(() => {
+        router.add('GET', '/assets*/x', '/assets*/x')
+        router.add('GET', '/assets*', '/assets*')
+        router.add('GET', '/file.+*', '/file.+*')
+      })
+
+      it('GET /assets', () => {
+        const res = match('GET', '/assets')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/assets*')
+      })
+
+      it('GET /assets-v2', () => {
+        const res = match('GET', '/assets-v2')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/assets*')
+      })
+
+      it('GET /assets/app.js', () => {
+        const res = match('GET', '/assets/app.js')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/assets*')
+      })
+
+      it('GET /asset', () => {
+        const res = match('GET', '/asset')
+        expect(res.length).toBe(0)
+      })
+
+      it('GET /file.+js', () => {
+        const res = match('GET', '/file.+js')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/file.+*')
+      })
+
+      it('GET /fileZZjs', () => {
+        const res = match('GET', '/fileZZjs')
+        expect(res.length).toBe(0)
+      })
+    })
+
+    describe('Suffix wildcard with params', () => {
+      beforeEach(() => {
+        router.add('GET', '/users/:id/avatar*', '/users/:id/avatar*')
+        router.add('GET', '/users/:id', '/users/:id')
+      })
+
+      it('GET /users/42/avatar.png', () => {
+        const res = match('GET', '/users/42/avatar.png')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/users/:id/avatar*')
+        expect(res[0].params['id']).toBe('42')
+      })
+
+      it('GET /users/42', () => {
+        const res = match('GET', '/users/42')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('/users/:id')
+        expect(res[0].params['id']).toBe('42')
+      })
+    })
+
     describe('Unknown method', () => {
       beforeEach(() => {
         router.add('GET', '/', 'index')

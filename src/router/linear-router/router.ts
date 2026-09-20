@@ -40,7 +40,11 @@ export class LinearRouter<T> implements Router<T> {
           }
         } else if (hasStar && !hasLabel) {
           const endsWithStar = routePath.charCodeAt(routePath.length - 1) === 42
-          const parts = (endsWithStar ? routePath.slice(0, -2) : routePath).split(splitByStarRe)
+          const parts = (
+            endsWithStar
+              ? routePath.slice(0, routePath.charCodeAt(routePath.length - 2) === 47 ? -2 : -1)
+              : routePath
+          ).split(splitByStarRe)
 
           const lastIndex = parts.length - 1
           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {

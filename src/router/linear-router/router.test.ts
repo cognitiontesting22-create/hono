@@ -13,6 +13,8 @@ describe('LinearRouter', () => {
           'Capture regex param with trailing wildcard on empty remainder > GET /123',
           'Capture regex param with trailing wildcard and sibling route > GET /regex-abc/123/ghi',
           'Complex > Parameter with {.*} regexp',
+          'Suffix wildcard with params > GET /users/42/avatar.png',
+          'Suffix wildcard with params > GET /users/42',
         ],
       },
       {
