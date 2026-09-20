@@ -370,6 +370,62 @@ export const runTest = ({
       })
     })
 
+    describe('Suffix wildcard', () => {
+      beforeEach(() => {
+        router.add('GET', '/assets*/x', '/assets*/x')
+        router.add('GET', '/assets*', '/assets*')
+        router.add('GET', '/file.+*', '/file.+*')
+      })
+
+      it('should match the literal prefix itself', async () => {
+        const res = match('GET', '/assets')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toEqual('/assets*')
+      })
+
+      it('should match a longer segment', async () => {
+        const res = match('GET', '/assets-v2')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toEqual('/assets*')
+      })
+
+      it('should match sub paths', async () => {
+        const res = match('GET', '/assets/app.js')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toEqual('/assets*')
+      })
+
+      it('should not match a shorter prefix', async () => {
+        const res = match('GET', '/asset')
+        expect(res.length).toBe(0)
+      })
+
+      it('should match the prefix literally', async () => {
+        expect(match('GET', '/file.+js').length).toBe(1)
+        expect(match('GET', '/file.+js')[0].handler).toEqual('/file.+*')
+        expect(match('GET', '/fileZZjs').length).toBe(0)
+      })
+
+      it('should not match other paths', async () => {
+        expect(match('GET', '/').length).toBe(0)
+        expect(match('GET', '/foo').length).toBe(0)
+      })
+    })
+
+    describe('Suffix wildcard with params', () => {
+      beforeEach(() => {
+        router.add('GET', '/users/:id/avatar*', '/users/:id/avatar*')
+      })
+
+      it('GET /users/42/avatar.png', async () => {
+        const res = match('GET', '/users/42/avatar.png')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toEqual('/users/:id/avatar*')
+        expect(res[0].params['id']).toBe('42')
+        expect(match('GET', '/users/42/avata').length).toBe(0)
+      })
+    })
+
     describe('Optional route', () => {
       beforeEach(() => {
         router.add('GET', '/api/animals/:type?', 'animals')
