@@ -124,6 +124,23 @@ describe('Cookie Middleware', () => {
       expect(res.headers.get('Fortune-Cookie')).toBe('INVALID')
     })
 
+    describe('get consistent values for duplicate cookie names', () => {
+      const app = new Hono()
+
+      app.get('/cookie', (c) => {
+        const all = getCookie(c)
+        const byKey = getCookie(c, 'yummy_cookie')
+        return c.json({ bulk: all['yummy_cookie'], byKey })
+      })
+
+      it('getCookie(c) and getCookie(c, key) return the same first value', async () => {
+        const req = new Request('http://localhost/cookie')
+        req.headers.set('Cookie', 'yummy_cookie=first; yummy_cookie=last')
+        const res = await app.request(req)
+        expect(await res.json()).toEqual({ bulk: 'first', byKey: 'first' })
+      })
+    })
+
     describe('get null if the value is undefined', () => {
       const app = new Hono()
 

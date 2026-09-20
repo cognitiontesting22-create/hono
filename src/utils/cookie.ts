@@ -105,7 +105,9 @@ export const parse = (cookie: string, name?: string): Cookie => {
     return {}
   }
   const pairs = cookie.split(';')
-  const parsedCookie: Cookie = {}
+  // use a null-prototype object so that names colliding with Object.prototype
+  // members (e.g. "toString") are handled as regular cookie names
+  const parsedCookie: Cookie = Object.create(null)
   for (const pairStr of pairs) {
     const valueStartPos = pairStr.indexOf('=')
     if (valueStartPos === -1) {
@@ -113,7 +115,11 @@ export const parse = (cookie: string, name?: string): Cookie => {
     }
 
     const cookieName = trimCookieWhitespace(pairStr.substring(0, valueStartPos))
-    if ((name && name !== cookieName) || !validCookieNameRegEx.test(cookieName)) {
+    if (
+      (name && name !== cookieName) ||
+      !validCookieNameRegEx.test(cookieName) ||
+      cookieName in parsedCookie
+    ) {
       continue
     }
 
@@ -138,7 +144,7 @@ export const parseSigned = async (
   secret: string | BufferSource,
   name?: string
 ): Promise<SignedCookie> => {
-  const parsedCookie: SignedCookie = {}
+  const parsedCookie: SignedCookie = Object.create(null)
   const secretKey = await getCryptoKey(secret)
 
   for (const [key, value] of Object.entries(parse(cookie, name))) {
