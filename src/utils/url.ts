@@ -47,11 +47,14 @@ const replaceGroupMarks = (paths: string[], groups: [string, string][]): string[
   return paths
 }
 
+const escapeRegExp = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 const patternCache: { [key: string]: Pattern } = {}
 export const getPattern = (label: string, next?: string): Pattern | null => {
   // *            => wildcard
   // :id{[0-9]+}  => ([0-9]+)
   // :id          => (.+)
+  // foo*         => suffix wildcard (matches the literal "foo" followed by anything)
 
   if (label === '*') {
     return '*'
@@ -72,6 +75,15 @@ export const getPattern = (label: string, next?: string): Pattern | null => {
     }
 
     return patternCache[cacheKey]
+  }
+
+  if (label.length > 1 && label.endsWith('*') && next === undefined) {
+    const cacheKey = `${label}#${next}`
+    return (patternCache[cacheKey] ??= [
+      label,
+      '',
+      new RegExp(`^${escapeRegExp(label.slice(0, -1))}`),
+    ])
   }
 
   return null

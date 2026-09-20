@@ -1,5 +1,5 @@
 import type { Params, Result, Router } from '../../router'
-import { METHOD_NAME_ALL, UnsupportedPathError } from '../../router'
+import { METHOD_NAME_ALL } from '../../router'
 import { checkOptionalParameter } from '../../utils/url'
 
 type RegExpMatchArrayWithIndices = RegExpMatchArray & { indices: [number, number][] }
@@ -40,7 +40,13 @@ export class LinearRouter<T> implements Router<T> {
           }
         } else if (hasStar && !hasLabel) {
           const endsWithStar = routePath.charCodeAt(routePath.length - 1) === 42
-          const parts = (endsWithStar ? routePath.slice(0, -2) : routePath).split(splitByStarRe)
+          const parts = (
+            endsWithStar
+              ? routePath.charCodeAt(routePath.length - 2) === 47
+                ? routePath.slice(0, -2)
+                : routePath.slice(0, -1)
+              : routePath
+          ).split(splitByStarRe)
 
           const lastIndex = parts.length - 1
           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {
@@ -67,9 +73,16 @@ export class LinearRouter<T> implements Router<T> {
             }
           }
           handlers.push([handler, emptyParams])
-        } else if (hasLabel && !hasStar) {
+        } else {
+          const endsWithStar = routePath.charCodeAt(routePath.length - 1) === 42
+          const routePathForMatch = endsWithStar
+            ? routePath.charCodeAt(routePath.length - 2) === 47
+              ? routePath.slice(0, -2)
+              : routePath.slice(0, -1)
+            : routePath
+
           const params: Record<string, string> = Object.create(null)
-          const parts = routePath.match(splitPathRe) as string[]
+          const parts = routePathForMatch.match(splitPathRe) as string[]
 
           const lastIndex = parts.length - 1
           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {
@@ -124,6 +137,7 @@ export class LinearRouter<T> implements Router<T> {
 
             if (j === lastIndex) {
               if (
+                !endsWithStar &&
                 pos !== path.length &&
                 !(pos === path.length - 1 && path.charCodeAt(pos) === 47)
               ) {
@@ -133,8 +147,6 @@ export class LinearRouter<T> implements Router<T> {
           }
 
           handlers.push([handler, params])
-        } else if (hasLabel && hasStar) {
-          throw new UnsupportedPathError()
         }
       }
     }

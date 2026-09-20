@@ -1,4 +1,3 @@
-import { UnsupportedPathError } from '../../router'
 import { runTest } from '../common.case.test'
 import { LinearRouter } from './router'
 
@@ -8,9 +7,7 @@ describe('LinearRouter', () => {
       {
         reason: 'UnsupportedPath',
         tests: [
-          'Multi match > `params` per a handler > GET /entry/123/show',
           'Capture regex pattern has trailing wildcard > GET /foo/bar/file.html',
-          'Capture regex param with trailing wildcard on empty remainder > GET /123',
           'Capture regex param with trailing wildcard and sibling route > GET /regex-abc/123/ghi',
           'Complex > Parameter with {.*} regexp',
         ],
@@ -34,9 +31,14 @@ describe('LinearRouter', () => {
       })
 
       it('GET /entry/123/show', () => {
-        expect(() => {
-          router.match('GET', '/entry/123/show')
-        }).toThrowError(UnsupportedPathError)
+        const [res] = router.match('GET', '/entry/123/show')
+        expect(res.length).toBe(3)
+        expect(res[0][0]).toBe('middleware a')
+        expect(res[1][0]).toBe('middleware b')
+        expect(res[1][1]['id']).toBe('123')
+        expect(res[2][0]).toBe('action')
+        expect(res[2][1]['id']).toBe('123')
+        expect(res[2][1]['action']).toBe('show')
       })
     })
   })

@@ -57,10 +57,15 @@ export class Node<T> {
       const key = Array.isArray(pattern) ? pattern[0] : p
 
       if (key in curNode.#children) {
-        curNode = curNode.#children[key]
         if (pattern) {
-          possibleKeys.push(pattern[1])
+          if (pattern[1]) {
+            possibleKeys.push(pattern[1])
+          }
+          if (!curNode.#patterns.some((p) => (Array.isArray(p) ? p[0] : p) === key)) {
+            curNode.#patterns.push(pattern)
+          }
         }
+        curNode = curNode.#children[key]
         continue
       }
 
@@ -68,7 +73,9 @@ export class Node<T> {
 
       if (pattern) {
         curNode.#patterns.push(pattern)
-        possibleKeys.push(pattern[1])
+        if (pattern[1]) {
+          possibleKeys.push(pattern[1])
+        }
       }
       curNode = curNode.#children[key]
     }
@@ -184,25 +191,30 @@ export class Node<T> {
 
             const m = matcher.exec(restPathString)
             if (m) {
-              params[name] = m[0]
+              if (name !== '') {
+                params[name] = m[0]
+              }
               this.#pushHandlerSets(handlerSets, child, method, node.#params, params)
 
-              // '/:id{[0-9]+}/*' => match '/123'
-              if (m[0].length === restPathString.length && child.#children['*']) {
-                this.#pushHandlerSets(
-                  handlerSets,
-                  child.#children['*'],
-                  method,
-                  node.#params,
-                  params
-                )
-              }
+              // A suffix wildcard (e.g. '/assets*') matches the rest of the path, so it is terminal.
+              if (name !== '') {
+                // '/:id{[0-9]+}/*' => match '/123'
+                if (m[0].length === restPathString.length && child.#children['*']) {
+                  this.#pushHandlerSets(
+                    handlerSets,
+                    child.#children['*'],
+                    method,
+                    node.#params,
+                    params
+                  )
+                }
 
-              if (hasChildren(child.#children)) {
-                child.#params = params
-                const componentCount = m[0].match(/\//g)?.length ?? 0
-                const targetCurNodes = (curNodesQueue[componentCount] ||= [])
-                targetCurNodes.push(child)
+                if (hasChildren(child.#children)) {
+                  child.#params = params
+                  const componentCount = m[0].match(/\//g)?.length ?? 0
+                  const targetCurNodes = (curNodesQueue[componentCount] ||= [])
+                  targetCurNodes.push(child)
+                }
               }
 
               continue

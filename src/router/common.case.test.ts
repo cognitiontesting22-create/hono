@@ -919,5 +919,77 @@ export const runTest = ({
         expect(res[0].handler).toBe('all')
       })
     })
+
+    describe('Suffix wildcard', () => {
+      describe('Basic', () => {
+        beforeEach(() => {
+          router.add('GET', '/assets*', 'assets')
+        })
+
+        it('GET /assets', () => {
+          const res = match('GET', '/assets')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('assets')
+        })
+
+        it('GET /assets-v2', () => {
+          const res = match('GET', '/assets-v2')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('assets')
+        })
+
+        it('GET /assets/app.js', () => {
+          const res = match('GET', '/assets/app.js')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('assets')
+        })
+
+        it('GET /asset', () => {
+          const res = match('GET', '/asset')
+          expect(res.length).toBe(0)
+        })
+      })
+
+      describe('Literal text before the star', () => {
+        beforeEach(() => {
+          router.add('GET', '/file.+*', 'file')
+        })
+
+        it('GET /file.+js', () => {
+          const res = match('GET', '/file.+js')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('file')
+        })
+
+        it('GET /fileZZjs', () => {
+          const res = match('GET', '/fileZZjs')
+          expect(res.length).toBe(0)
+        })
+      })
+
+      describe('Compose with params', () => {
+        beforeEach(() => {
+          router.add('GET', '/users/:id/avatar*', 'avatar')
+        })
+
+        it('GET /users/42/avatar.png', () => {
+          const res = match('GET', '/users/42/avatar.png')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('avatar')
+          expect(res[0].params['id']).toBe('42')
+        })
+      })
+
+      describe('Registration order', () => {
+        it('a longer route registered first does not break the suffix wildcard', () => {
+          router.add('GET', '/assets*/x', 'longer')
+          router.add('GET', '/assets*', 'assets')
+
+          const res = match('GET', '/assets/app.js')
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('assets')
+        })
+      })
+    })
   })
 }

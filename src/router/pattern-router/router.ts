@@ -12,7 +12,7 @@ export class PatternRouter<T> implements Router<T> {
   add(method: string, path: string, handler: T) {
     const endsWithWildcard = path.at(-1) === '*'
     if (endsWithWildcard) {
-      path = path.slice(0, -2)
+      path = path.at(-2) === '/' ? path.slice(0, -2) : path.slice(0, -1)
     }
     if (path.at(-1) === '?') {
       path = path.slice(0, -1)

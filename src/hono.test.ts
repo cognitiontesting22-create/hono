@@ -484,6 +484,19 @@ describe('Routing', () => {
     expect(await res.text()).toBe('get /book')
   })
 
+  it('Suffix wildcard with a sub-app that has static and `:param` routes', async () => {
+    const app = new Hono()
+    const sub = new Hono()
+    sub.post('/items', (c) => c.text('items'))
+    sub.post('/:slug', (c) => c.text('slug'))
+    app.route('/api', sub)
+    app.get('/assets*', (c) => c.text('ok'))
+
+    const res = await app.request('http://x/assets/app.js')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('ok')
+  })
+
   describe('Nested route - basePath of the mounted routes', () => {
     it('Should set basePath to the mount path', () => {
       const app = new Hono()
