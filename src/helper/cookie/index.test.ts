@@ -1,4 +1,5 @@
 import { Hono } from '../../hono'
+import { serializeSigned } from '../../utils/cookie'
 import {
   deleteCookie,
   getCookie,
@@ -143,6 +144,61 @@ describe('Cookie Middleware', () => {
         const res = await app.request(req)
         expect(res.headers.get('Yummy-Cookie')).toBe(null)
       })
+    })
+
+    it('Should return the same value for duplicate cookie names in both forms', async () => {
+      const app = new Hono()
+      app.get('/cookie', (c) => {
+        return c.json({
+          all: getCookie(c)['a'],
+          byName: getCookie(c, 'a'),
+        })
+      })
+      const req = new Request('http://localhost/cookie')
+      req.headers.set('Cookie', 'a=first; a=last')
+      const res = await app.request(req)
+      expect(await res.json()).toEqual({ all: 'first', byName: 'first' })
+    })
+
+    it('Should parse cookie names that collide with Object.prototype members', async () => {
+      const app = new Hono()
+      app.get('/cookie', (c) => {
+        return c.json({
+          all: {
+            toString: getCookie(c)['toString'],
+            hasOwnProperty: getCookie(c)['hasOwnProperty'],
+            constructor: getCookie(c)['constructor'],
+          },
+          toStringByName: getCookie(c, 'toString'),
+          hasOwnPropertyByName: getCookie(c, 'hasOwnProperty'),
+          constructorByName: getCookie(c, 'constructor'),
+        })
+      })
+      const req = new Request('http://localhost/cookie')
+      req.headers.set('Cookie', 'toString=foo; hasOwnProperty=bar; constructor=baz')
+      const res = await app.request(req)
+      expect(await res.json()).toEqual({
+        all: { toString: 'foo', hasOwnProperty: 'bar', constructor: 'baz' },
+        toStringByName: 'foo',
+        hasOwnPropertyByName: 'bar',
+        constructorByName: 'baz',
+      })
+    })
+
+    it('Should return the same value for duplicated signed cookie names in both forms', async () => {
+      const secret = 'secret lucky charm'
+      const app = new Hono()
+      app.get('/cookie', async (c) => {
+        const all = await getSignedCookie(c, secret)
+        const byName = await getSignedCookie(c, secret, 'a')
+        return c.json({ all: all['a'], byName })
+      })
+      const first = await serializeSigned('a', 'first', secret)
+      const last = await serializeSigned('a', 'last', secret)
+      const req = new Request('http://localhost/cookie')
+      req.headers.set('Cookie', `${first}; ${last}`)
+      const res = await app.request(req)
+      expect(await res.json()).toEqual({ all: 'first', byName: 'first' })
     })
   })
 

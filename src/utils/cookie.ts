@@ -102,10 +102,10 @@ const trimCookieWhitespace = (value: string): string => {
 export const parse = (cookie: string, name?: string): Cookie => {
   if (name && cookie.indexOf(name) === -1) {
     // Fast-path: return immediately if the demanded-key is not in the cookie string
-    return {}
+    return Object.create(null)
   }
   const pairs = cookie.split(';')
-  const parsedCookie: Cookie = {}
+  const parsedCookie: Cookie = Object.create(null)
   for (const pairStr of pairs) {
     const valueStartPos = pairStr.indexOf('=')
     if (valueStartPos === -1) {
@@ -121,7 +121,10 @@ export const parse = (cookie: string, name?: string): Cookie => {
     if (cookieValue.startsWith('"') && cookieValue.endsWith('"')) {
       cookieValue = cookieValue.slice(1, -1)
     }
-    if (validCookieValueRegEx.test(cookieValue)) {
+    if (
+      validCookieValueRegEx.test(cookieValue) &&
+      !Object.prototype.hasOwnProperty.call(parsedCookie, cookieName)
+    ) {
       parsedCookie[cookieName] =
         cookieValue.indexOf('%') !== -1 ? tryDecode(cookieValue, decodeURIComponent_) : cookieValue
       if (name) {
@@ -138,7 +141,7 @@ export const parseSigned = async (
   secret: string | BufferSource,
   name?: string
 ): Promise<SignedCookie> => {
-  const parsedCookie: SignedCookie = {}
+  const parsedCookie: SignedCookie = Object.create(null)
   const secretKey = await getCryptoKey(secret)
 
   for (const [key, value] of Object.entries(parse(cookie, name))) {

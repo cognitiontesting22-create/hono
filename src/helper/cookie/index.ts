@@ -40,7 +40,7 @@ export const getCookie: GetCookie = (c, key?, prefix?: CookiePrefixOptions) => {
     return obj[finalKey]
   }
   if (!cookie) {
-    return {}
+    return Object.create(null)
   }
   const obj = parse(cookie)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,7 +68,7 @@ export const getSignedCookie: GetSignedCookie = async (
     return obj[finalKey]
   }
   if (!cookie) {
-    return {}
+    return Object.create(null)
   }
   const obj = await parseSigned(cookie, secret)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
