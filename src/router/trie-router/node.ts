@@ -53,12 +53,20 @@ export class Node<T> {
     for (let i = 0, len = parts.length; i < len; i++) {
       const p: string = parts[i]
       const nextP = parts[i + 1]
-      const pattern = getPattern(p, nextP)
+      let pattern = getPattern(p, nextP)
+      if (pattern === null && p.length > 1 && p.charCodeAt(p.length - 1) === 42) {
+        // '/abc*' => match '/abc', '/abc-def' and '/abc/def'
+        pattern = [
+          p,
+          '',
+          new RegExp(`^${p.slice(0, -1).replace(/[.\\+*[^\]$()]/g, '\\$&')}[^/]*`),
+        ]
+      }
       const key = Array.isArray(pattern) ? pattern[0] : p
 
       if (key in curNode.#children) {
         curNode = curNode.#children[key]
-        if (pattern) {
+        if (pattern && pattern[1]) {
           possibleKeys.push(pattern[1])
         }
         continue
@@ -68,7 +76,9 @@ export class Node<T> {
 
       if (pattern) {
         curNode.#patterns.push(pattern)
-        possibleKeys.push(pattern[1])
+        if (pattern[1]) {
+          possibleKeys.push(pattern[1])
+        }
       }
       curNode = curNode.#children[key]
     }
@@ -184,7 +194,9 @@ export class Node<T> {
 
             const m = matcher.exec(restPathString)
             if (m) {
-              params[name] = m[0]
+              if (name) {
+                params[name] = m[0]
+              }
               this.#pushHandlerSets(handlerSets, child, method, node.#params, params)
 
               // '/:id{[0-9]+}/*' => match '/123'

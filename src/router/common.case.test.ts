@@ -902,6 +902,50 @@ export const runTest = ({
       })
     })
 
+    describe('Wildcard with prefix', () => {
+      it('GET /assets*', () => {
+        router.add('GET', '/assets*', 'suffix wildcard')
+
+        for (const path of ['/assets', '/assets-v2', '/assets/app.js']) {
+          const res = match('GET', path)
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('suffix wildcard')
+        }
+
+        expect(match('GET', '/asset').length).toBe(0)
+      })
+
+      it('GET /file.+*', () => {
+        router.add('GET', '/file.+*', 'file')
+
+        const res = match('GET', '/file.+js')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('file')
+
+        expect(match('GET', '/fileZZjs').length).toBe(0)
+      })
+
+      it('GET /users/:id/avatar*', () => {
+        router.add('GET', '/users/:id/avatar*', 'avatar')
+
+        const res = match('GET', '/users/42/avatar.png')
+        expect(res.length).toBe(1)
+        expect(res[0].handler).toBe('avatar')
+        expect(res[0].params['id']).toBe('42')
+      })
+
+      it('GET /assets* registered after /assets*/x', () => {
+        router.add('GET', '/assets*/x', 'longer')
+        router.add('GET', '/assets*', 'suffix wildcard')
+
+        for (const path of ['/assets', '/assets/app.js']) {
+          const res = match('GET', path)
+          expect(res.length).toBe(1)
+          expect(res[0].handler).toBe('suffix wildcard')
+        }
+      })
+    })
+
     describe('Unknown method', () => {
       beforeEach(() => {
         router.add('GET', '/', 'index')

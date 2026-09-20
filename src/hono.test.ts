@@ -484,6 +484,24 @@ describe('Routing', () => {
     expect(await res.text()).toBe('get /book')
   })
 
+  it('Wildcard with prefix route and a sub-app that falls back to TrieRouter', async () => {
+    const app = new Hono()
+    const sub = new Hono()
+    sub.post('/items', (c) => c.text('items'))
+    sub.post('/:slug', (c) => c.text('slug'))
+    app.route('/api', sub)
+    app.get('/assets*', (c) => c.text('ok'))
+
+    for (const path of ['/assets', '/assets-v2', '/assets/app.js']) {
+      const res = await app.request(`http://localhost${path}`)
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe('ok')
+    }
+
+    const res = await app.request('http://localhost/asset')
+    expect(res.status).toBe(404)
+  })
+
   describe('Nested route - basePath of the mounted routes', () => {
     it('Should set basePath to the mount path', () => {
       const app = new Hono()
