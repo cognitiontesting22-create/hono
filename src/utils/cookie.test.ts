@@ -2,6 +2,57 @@ import type { Cookie, SignedCookie } from './cookie'
 import { parse, parseSigned, serialize, serializeSigned } from './cookie'
 
 describe('Parse cookie', () => {
+  it.each([
+    ['a=first; b=other; a=last', 'a', 'first'],
+    ['a=; a=last', 'a', ''],
+    ['a; a=first; a=last', 'a', 'first'],
+    ['\ta = "first%20value" ; a=last', 'a', 'first value'],
+    ['a=first%2; a=last', 'a', 'first%2'],
+    ['__Secure-a=first; __Secure-a=last', '__Secure-a', 'first'],
+    ['__Host-a=first; __Host-a=last', '__Host-a', 'first'],
+  ])('Should use the first value in %s', (header, name, expected) => {
+    expect(parse(header)[name]).toBe(expected)
+    expect(parse(header, name)[name]).toBe(expected)
+  })
+
+  it.each(['toString', 'hasOwnProperty', 'constructor', '__proto__'])(
+    'Should parse %s as an own cookie property and keep its first value',
+    (name) => {
+      for (const header of [`${name}=first`, `${name}=first; ${name}=last`]) {
+        for (const cookie of [parse(header), parse(header, name)]) {
+          expect(Object.prototype.hasOwnProperty.call(cookie, name)).toBe(true)
+          expect(cookie[name]).toBe('first')
+        }
+      }
+    }
+  )
+
+  it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__proto__'])(
+    'Should verify only the first occurrence of signed cookie %s',
+    async (name) => {
+      const secret = 'secret ingredient'
+      const first = await serializeSigned(name, 'first', secret)
+      const last = await serializeSigned(name, 'last', secret)
+      const invalid = await serializeSigned(name, 'first', 'wrong secret')
+      for (const [header, expected] of [
+        [first, 'first'],
+        [`${first}; ${last}`, 'first'],
+        [`${first}; ${invalid}`, 'first'],
+        [`${invalid}; ${last}`, false],
+      ] as const) {
+        expect((await parseSigned(header, secret))[name]).toBe(expected)
+        expect((await parseSigned(header, secret, name))[name]).toBe(expected)
+      }
+    }
+  )
+
+  it('Should not use a later signed cookie when the first occurrence is unsigned', async () => {
+    const secret = 'secret ingredient'
+    const header = `a=unsigned; ${await serializeSigned('a', 'last', secret)}`
+    expect((await parseSigned(header, secret))['a']).toBeUndefined()
+    expect((await parseSigned(header, secret, 'a'))['a']).toBeUndefined()
+  })
+
   it('Should parse cookies', () => {
     const cookieString = 'yummy_cookie=choco; tasty_cookie = strawberry '
     const cookie: Cookie = parse(cookieString)

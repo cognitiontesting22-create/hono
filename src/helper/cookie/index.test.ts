@@ -9,6 +9,72 @@ import {
   generateSignedCookie,
 } from '.'
 
+describe('Duplicate cookies', () => {
+  it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__proto__'])(
+    'Should return the first %s cookie in both forms',
+    async (name) => {
+      const app = new Hono()
+      app.get('/', (c) => c.json({ all: getCookie(c)[name], named: getCookie(c, name) }))
+      const res = await app.request('/', {
+        headers: { Cookie: `${name}=first; ${name}=last` },
+      })
+      expect(await res.json()).toEqual({ all: 'first', named: 'first' })
+    }
+  )
+
+  it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__proto__'])(
+    'Should verify the first signed %s cookie in both forms',
+    async (name) => {
+      const secret = 'secret ingredient'
+      const app = new Hono()
+      app.get('/', async (c) =>
+        c.json({
+          all: (await getSignedCookie(c, secret))[name],
+          named: await getSignedCookie(c, secret, name),
+        })
+      )
+      const first = await generateSignedCookie(name, 'first', secret)
+      const last = await generateSignedCookie(name, 'last', secret)
+      const invalid = await generateSignedCookie(name, 'first', 'wrong secret')
+      for (const [cookie, expected] of [
+        [`${first}; ${last}`, 'first'],
+        [`${first}; ${invalid}`, 'first'],
+        [`${invalid}; ${last}`, false],
+      ] as const) {
+        const res = await app.request('/', { headers: { Cookie: cookie } })
+        expect(await res.json()).toEqual({ all: expected, named: expected })
+      }
+    }
+  )
+
+  it.each(['secure', 'host'] as const)(
+    'Should return the first cookie with the %s prefix in both forms',
+    async (prefix) => {
+      const name = prefix === 'secure' ? '__Secure-a' : '__Host-a'
+      const secret = 'secret ingredient'
+      const app = new Hono()
+      app.get('/', (c) => c.json({ all: getCookie(c)[name], named: getCookie(c, 'a', prefix) }))
+      app.get('/signed', async (c) =>
+        c.json({
+          all: (await getSignedCookie(c, secret))[name],
+          named: await getSignedCookie(c, secret, 'a', prefix),
+        })
+      )
+      const res = await app.request('/', {
+        headers: { Cookie: `${name}=first; ${name}=last` },
+      })
+      expect(await res.json()).toEqual({ all: 'first', named: 'first' })
+
+      const first = await generateSignedCookie('a', 'first', secret, { prefix })
+      const last = await generateSignedCookie('a', 'last', secret, { prefix })
+      const signedRes = await app.request('/signed', {
+        headers: { Cookie: `${first}; ${last}` },
+      })
+      expect(await signedRes.json()).toEqual({ all: 'first', named: 'first' })
+    }
+  )
+})
+
 describe('Cookie Middleware', () => {
   describe('Parse cookie', () => {
     const apps: Record<string, Hono> = {}
