@@ -46,6 +46,20 @@ const createResponseProxy = (response: Response) => {
   })
 }
 
+it('matches suffix wildcards after falling back for sibling sub-app routes', async () => {
+  const app = new Hono()
+  const sub = new Hono()
+  sub.post('/items', (c) => c.text('items'))
+  sub.post('/:slug', (c) => c.text('slug'))
+  app.route('/api', sub)
+  app.get('/assets*', (c) => c.text('ok'))
+
+  const res = await app.request('http://x/assets/app.js')
+  expect(res.status).toBe(200)
+  expect(await res.text()).toBe('ok')
+  expect(app.router.name).toBe('SmartRouter + TrieRouter')
+})
+
 describe('GET Request', () => {
   describe('without middleware', () => {
     // In other words, this is a test for cases that do not use `compose()`
