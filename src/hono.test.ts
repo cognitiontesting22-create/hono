@@ -473,6 +473,20 @@ describe('Routing', () => {
     expect(await res.text()).toBe('get /add-path-after-route-call')
   })
 
+  it('Suffix wildcard with static and parameter sibling routes in a sub-app', async () => {
+    const app = new Hono()
+    const sub = new Hono()
+    sub.post('/items', (c) => c.text('items'))
+    sub.post('/:slug', (c) => c.text('slug'))
+    app.route('/api', sub)
+    app.get('/assets*', (c) => c.text('ok'))
+
+    const res = await app.request('http://x/assets/app.js')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('ok')
+    expect((app.router as SmartRouter<unknown>).activeRouter).toBeInstanceOf(TrieRouter)
+  })
+
   it('Nested route - subApp with basePath', async () => {
     const app = new Hono()
     const book = new Hono().basePath('/book')

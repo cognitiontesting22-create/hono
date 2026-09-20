@@ -34,13 +34,20 @@ export class LinearRouter<T> implements Router<T> {
 
         const hasStar = routePath.indexOf('*') !== -1
         const hasLabel = routePath.indexOf(':') !== -1
+        const hasSuffixStar =
+          hasLabel &&
+          hasStar &&
+          routePath.indexOf('*') === routePath.length - 1 &&
+          routePath.at(-2) !== '/'
         if (!hasStar && !hasLabel) {
           if (routePath === path || routePath + '/' === path) {
             handlers.push([handler, emptyParams])
           }
         } else if (hasStar && !hasLabel) {
           const endsWithStar = routePath.charCodeAt(routePath.length - 1) === 42
-          const parts = (endsWithStar ? routePath.slice(0, -2) : routePath).split(splitByStarRe)
+          const parts = (
+            endsWithStar ? routePath.slice(0, routePath.at(-2) === '/' ? -2 : -1) : routePath
+          ).split(splitByStarRe)
 
           const lastIndex = parts.length - 1
           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {
@@ -67,9 +74,11 @@ export class LinearRouter<T> implements Router<T> {
             }
           }
           handlers.push([handler, emptyParams])
-        } else if (hasLabel && !hasStar) {
+        } else if (hasLabel && (!hasStar || hasSuffixStar)) {
           const params: Record<string, string> = Object.create(null)
-          const parts = routePath.match(splitPathRe) as string[]
+          const parts = (hasSuffixStar ? routePath.slice(0, -1) : routePath).match(
+            splitPathRe
+          ) as string[]
 
           const lastIndex = parts.length - 1
           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {
@@ -124,6 +133,7 @@ export class LinearRouter<T> implements Router<T> {
 
             if (j === lastIndex) {
               if (
+                !hasSuffixStar &&
                 pos !== path.length &&
                 !(pos === path.length - 1 && path.charCodeAt(pos) === 47)
               ) {

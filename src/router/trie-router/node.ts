@@ -26,6 +26,7 @@ export class Node<T> {
   #methods: Record<string, HandlerSet<T>>[]
 
   #children: Record<string, Node<T>>
+  #suffixWildcards?: Record<string, Node<T>>
   #patterns: Pattern[]
   #order: number = 0
   #params: Record<string, string> = emptyParams
@@ -55,6 +56,14 @@ export class Node<T> {
       const nextP = parts[i + 1]
       const pattern = getPattern(p, nextP)
       const key = Array.isArray(pattern) ? pattern[0] : p
+
+      if (!pattern && i === len - 1 && p.endsWith('*')) {
+        // Keep terminal suffix wildcards separate from literal segments in longer routes.
+        const prefix = p.slice(0, -1)
+        const suffixWildcards = (curNode.#suffixWildcards ||= Object.create(null))
+        curNode = suffixWildcards[prefix] ||= new Node()
+        break
+      }
 
       if (key in curNode.#children) {
         curNode = curNode.#children[key]
@@ -133,6 +142,19 @@ export class Node<T> {
         const node = curNodes[j]
         const nextNode = node.#children[part]
 
+        if (node.#suffixWildcards) {
+          for (const prefix in node.#suffixWildcards) {
+            if (part.startsWith(prefix)) {
+              this.#pushHandlerSets(
+                handlerSets,
+                node.#suffixWildcards[prefix],
+                method,
+                node.#params
+              )
+            }
+          }
+        }
+
         if (nextNode) {
           nextNode.#params = node.#params
           if (isLast) {
@@ -198,7 +220,7 @@ export class Node<T> {
                 )
               }
 
-              if (hasChildren(child.#children)) {
+              if (hasChildren(child.#children) || child.#suffixWildcards) {
                 child.#params = params
                 const componentCount = m[0].match(/\//g)?.length ?? 0
                 const targetCurNodes = (curNodesQueue[componentCount] ||= [])

@@ -81,6 +81,83 @@ export const runTest = ({
       })
     })
 
+    describe('Suffix wildcard', () => {
+      it('Matches the complete literal prefix and any suffix', () => {
+        router.add('GET', '/assets*', 'assets')
+
+        for (const path of [
+          '/assets',
+          '/assets-v2',
+          '/assets/app.js',
+          '/assets/a/b.js',
+          '/assets*',
+        ]) {
+          expect(match('GET', path)).toEqual([{ handler: 'assets', params: {} }])
+        }
+        for (const path of ['/asset', '/asset/app.js', '/other/assets']) {
+          expect(match('GET', path)).toEqual([])
+        }
+        expect(match('POST', '/assets/app.js')).toEqual([])
+      })
+
+      it('Treats regexp metacharacters in the prefix literally', () => {
+        router.add('GET', '/file.+*', 'file')
+
+        for (const path of ['/file.+', '/file.+js', '/file.+/app.js']) {
+          expect(match('GET', path)).toEqual([{ handler: 'file', params: {} }])
+        }
+        for (const path of ['/fileZZjs', '/file.js', '/file.']) {
+          expect(match('GET', path)).toEqual([])
+        }
+      })
+
+      it('Preserves parameters before the prefix', () => {
+        router.add('GET', '/users/:id/avatar*', 'avatar')
+
+        for (const path of ['/users/42/avatar', '/users/42/avatar.png', '/users/42/avatar/a.png']) {
+          expect(match('GET', path)).toEqual([{ handler: 'avatar', params: { id: '42' } }])
+        }
+        expect(match('GET', '/users/99/avatar.png')).toEqual([
+          { handler: 'avatar', params: { id: '99' } },
+        ])
+        expect(match('GET', '/users/42/avata')).toEqual([])
+      })
+
+      it('Preserves regexp parameters before the prefix', () => {
+        router.add('GET', '/users/:id{[0-9]+}/avatar*', 'avatar')
+
+        expect(match('GET', '/users/42/avatar.png')).toEqual([
+          { handler: 'avatar', params: { id: '42' } },
+        ])
+        expect(match('GET', '/users/abc/avatar.png')).toEqual([])
+      })
+
+      it('Matches when a longer route was registered first', () => {
+        router.add('GET', '/assets*/x', 'longer')
+        router.add('GET', '/assets*', 'assets')
+
+        expect(match('GET', '/assets/app.js')).toEqual([{ handler: 'assets', params: {} }])
+        expect(match('GET', '/assets')).toEqual([{ handler: 'assets', params: {} }])
+        expect(match('GET', '/assets*/x')).toEqual([
+          { handler: 'longer', params: {} },
+          { handler: 'assets', params: {} },
+        ])
+      })
+
+      it('Preserves handler order and ALL method matching', () => {
+        router.add('ALL', '/assets*', 'middleware')
+        router.add('GET', '/assets/app.js', 'file')
+        router.add('GET', '/assets*', 'fallback')
+
+        expect(match('GET', '/assets/app.js')).toEqual([
+          { handler: 'middleware', params: {} },
+          { handler: 'file', params: {} },
+          { handler: 'fallback', params: {} },
+        ])
+        expect(match('POST', '/assets/app.js')).toEqual([{ handler: 'middleware', params: {} }])
+      })
+    })
+
     describe('Reserved words', () => {
       it('Reserved words and named parameter', async () => {
         router.add('GET', '/entry/:constructor', 'get entry')
