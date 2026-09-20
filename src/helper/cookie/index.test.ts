@@ -11,6 +11,46 @@ import {
 
 describe('Cookie Middleware', () => {
   describe('Parse cookie', () => {
+    it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__Secure-a', '__Host-a'])(
+      'Should return the first %s cookie in both forms',
+      async (name) => {
+        const app = new Hono()
+        app.get('/cookie', (c) => c.json({ all: getCookie(c)[name], named: getCookie(c, name) }))
+
+        const res = await app.request('/cookie', {
+          headers: { Cookie: `${name}=first; ${name}=last` },
+        })
+        expect(await res.json()).toEqual({ all: 'first', named: 'first' })
+      }
+    )
+
+    it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__Secure-a', '__Host-a'])(
+      'Should check only the first signature for duplicate %s cookies in both forms',
+      async (name) => {
+        const secret = 'secret ingredient'
+        const options = { secure: true, path: '/' }
+        const first = await generateSignedCookie(name, 'first', secret, options)
+        const last = await generateSignedCookie(name, 'last', secret, options)
+        const invalid = await generateSignedCookie(name, 'first', 'wrong secret', options)
+        const app = new Hono()
+        app.get('/cookie', async (c) =>
+          c.json({
+            all: (await getSignedCookie(c, secret))[name],
+            named: await getSignedCookie(c, secret, name),
+          })
+        )
+
+        for (const [cookieString, expected] of [
+          [`${first}; ${last}`, 'first'],
+          [`${first}; ${invalid}`, 'first'],
+          [`${invalid}; ${last}`, false],
+        ] as const) {
+          const res = await app.request('/cookie', { headers: { Cookie: cookieString } })
+          expect(await res.json()).toEqual({ all: expected, named: expected })
+        }
+      }
+    )
+
     const apps: Record<string, Hono> = {}
     apps['get by name'] = (() => {
       const app = new Hono()

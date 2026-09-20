@@ -2,6 +2,70 @@ import type { Cookie, SignedCookie } from './cookie'
 import { parse, parseSigned, serialize, serializeSigned } from './cookie'
 
 describe('Parse cookie', () => {
+  it.each([
+    ['a=first; b=other; a=last', 'first'],
+    ['a=; a=last', ''],
+    ['a=""; a=last', ''],
+    ['\ta = "first%20value" \t; a=last', 'first value'],
+    ['a=first%2; a=last', 'first%2'],
+    ['a; a=first; a=last', 'first'],
+    ['a=invalid\\value; a=first; a=last', 'first'],
+  ])('Should keep the first valid pair in %s', (cookieString, expected) => {
+    expect(parse(cookieString)['a']).toBe(expected)
+    expect(parse(cookieString, 'a')).toEqual({ a: expected })
+  })
+
+  it.each(['toString', 'hasOwnProperty', 'constructor'])(
+    'Should parse Object.prototype member %s and keep its first value',
+    (name) => {
+      for (const cookieString of [`${name}=first`, `${name}=first; ${name}=last`]) {
+        expect(parse(cookieString)).toEqual({ [name]: 'first' })
+        expect(parse(cookieString, name)).toEqual({ [name]: 'first' })
+      }
+    }
+  )
+
+  it('Should handle multiple Object.prototype member names together', () => {
+    const cookieString =
+      'hasOwnProperty=bar; toString=foo; constructor=baz; hasOwnProperty=last; toString=last; constructor=last'
+    expect(parse(cookieString)).toEqual({
+      hasOwnProperty: 'bar',
+      toString: 'foo',
+      constructor: 'baz',
+    })
+  })
+
+  it.each(['a', 'toString', 'hasOwnProperty', 'constructor', '__Secure-a', '__Host-a'])(
+    'Should check only the first signature for duplicate %s cookies',
+    async (name) => {
+      const secret = 'secret ingredient'
+      const options = { secure: true, path: '/' }
+      const first = await serializeSigned(name, 'first', secret, options)
+      const last = await serializeSigned(name, 'last', secret, options)
+      const invalid = await serializeSigned(name, 'first', 'wrong secret', options)
+
+      for (const [cookieString, expected] of [
+        [`${first}; ${last}`, 'first'],
+        [`${first}; ${invalid}`, 'first'],
+        [`${invalid}; ${last}`, false],
+      ] as const) {
+        expect(await parseSigned(cookieString, secret)).toEqual({ [name]: expected })
+        expect(await parseSigned(cookieString, secret, name)).toEqual({ [name]: expected })
+      }
+    }
+  )
+
+  it.each(['a=unsigned', 'a=value.short', 'a='])(
+    'Should not fall back to a later signed cookie after %s',
+    async (first) => {
+      const secret = 'secret ingredient'
+      const last = await serializeSigned('a', 'last', secret)
+      const cookieString = `${first}; ${last}`
+      expect(await parseSigned(cookieString, secret)).toEqual({})
+      expect(await parseSigned(cookieString, secret, 'a')).toEqual({})
+    }
+  )
+
   it('Should parse cookies', () => {
     const cookieString = 'yummy_cookie=choco; tasty_cookie = strawberry '
     const cookie: Cookie = parse(cookieString)

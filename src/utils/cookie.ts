@@ -116,6 +116,10 @@ export const parse = (cookie: string, name?: string): Cookie => {
     if ((name && name !== cookieName) || !validCookieNameRegEx.test(cookieName)) {
       continue
     }
+    // Keep the first value, including for names inherited from Object.prototype.
+    if (Object.prototype.hasOwnProperty.call(parsedCookie, cookieName)) {
+      continue
+    }
 
     let cookieValue = trimCookieWhitespace(pairStr.substring(valueStartPos + 1))
     if (cookieValue.startsWith('"') && cookieValue.endsWith('"')) {
