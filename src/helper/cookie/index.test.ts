@@ -124,6 +124,46 @@ describe('Cookie Middleware', () => {
       expect(res.headers.get('Fortune-Cookie')).toBe('INVALID')
     })
 
+    describe('duplicate cookie names', () => {
+      const app = new Hono()
+
+      app.get('/probe', (c) => {
+        const all = getCookie(c)
+        return c.json({ all: all['a'], byKey: getCookie(c, 'a'), toStr: all['toString'] })
+      })
+
+      app.get('/probe-signed', async (c) => {
+        const secret = 'secret lucky charm'
+        const all = await getSignedCookie(c, secret)
+        return c.json({
+          all: all['fortune_cookie'],
+          byKey: await getSignedCookie(c, secret, 'fortune_cookie'),
+        })
+      })
+
+      it('Should return the first value in both forms', async () => {
+        const req = new Request('http://localhost/probe')
+        req.headers.set('Cookie', 'a=first; a=last; toString=first; toString=last')
+        const res = await app.request(req)
+        expect(await res.json()).toEqual({ all: 'first', byKey: 'first', toStr: 'first' })
+      })
+
+      it('Should check the signature of the first occurrence in both forms', async () => {
+        const valid = 'fortune_cookie=lots-of-money.UO6vMygDM6NCDU4LdvBnzdVb2Xcdj+h+ZTnmS8X7iH8%3D'
+        const invalid = 'fortune_cookie=lots-of-money.LAa7RX43t2vCrLNcKmNG65H41OkyV02sraRPuY5RuVg='
+
+        let req = new Request('http://localhost/probe-signed')
+        req.headers.set('Cookie', `${valid}; ${invalid}`)
+        let res = await app.request(req)
+        expect(await res.json()).toEqual({ all: 'lots-of-money', byKey: 'lots-of-money' })
+
+        req = new Request('http://localhost/probe-signed')
+        req.headers.set('Cookie', `${invalid}; ${valid}`)
+        res = await app.request(req)
+        expect(await res.json()).toEqual({ all: false, byKey: false })
+      })
+    })
+
     describe('get null if the value is undefined', () => {
       const app = new Hono()
 

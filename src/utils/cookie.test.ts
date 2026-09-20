@@ -187,6 +187,45 @@ describe('Parse cookie', () => {
     const cookie: SignedCookie = await parseSigned(cookieString, secret, 'dummy-cookie')
     expect(cookie['dummy-cookie']).toBe('choco')
   })
+
+  it('Should keep the first value for duplicate cookie names', () => {
+    const cookieString = 'a=first; b=1; a=last'
+    expect(parse(cookieString)).toEqual({ a: 'first', b: '1' })
+    expect(parse(cookieString)['a']).toBe(parse(cookieString, 'a')['a'])
+    expect(parse(cookieString, 'a')).toEqual({ a: 'first' })
+  })
+
+  it('Should parse cookie names that collide with Object.prototype members', () => {
+    const cookieString = 'toString=foo; hasOwnProperty=bar; constructor=baz'
+    expect(parse(cookieString)).toEqual({
+      toString: 'foo',
+      hasOwnProperty: 'bar',
+      constructor: 'baz',
+    })
+    expect(parse(cookieString, 'toString')['toString']).toBe('foo')
+    expect(parse(cookieString, 'hasOwnProperty')['hasOwnProperty']).toBe('bar')
+    expect(parse(cookieString, 'constructor')['constructor']).toBe('baz')
+
+    const duplicated = 'toString=first; toString=last'
+    expect(parse(duplicated)['toString']).toBe('first')
+    expect(parse(duplicated, 'toString')['toString']).toBe('first')
+  })
+
+  it('Should verify the first occurrence for duplicate signed cookie names', async () => {
+    const secret = 'secret ingredient'
+    const valid = 'yummy_cookie=choco.UdFR2rBpS1GsHfGlUiYyMIdqxqwuEgplyQIgTJgpGWY%3D'
+    const invalid = 'yummy_cookie=evil.LAa7RX43t2vCrLNcKmNG65H41OkyV02sraRPuY5RuVg%3D'
+
+    let cookie: SignedCookie = await parseSigned(`${valid}; ${invalid}`, secret)
+    expect(cookie['yummy_cookie']).toBe('choco')
+    cookie = await parseSigned(`${valid}; ${invalid}`, secret, 'yummy_cookie')
+    expect(cookie['yummy_cookie']).toBe('choco')
+
+    cookie = await parseSigned(`${invalid}; ${valid}`, secret)
+    expect(cookie['yummy_cookie']).toBe(false)
+    cookie = await parseSigned(`${invalid}; ${valid}`, secret, 'yummy_cookie')
+    expect(cookie['yummy_cookie']).toBe(false)
+  })
 })
 
 describe('Set cookie', () => {
