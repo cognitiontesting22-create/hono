@@ -144,6 +144,41 @@ describe('Cookie Middleware', () => {
         expect(res.headers.get('Yummy-Cookie')).toBe(null)
       })
     })
+
+    describe('duplicate cookie names', () => {
+      const app = new Hono()
+
+      app.get('/cookie', (c) => {
+        return c.json({
+          all: getCookie(c)['a'],
+          byKey: getCookie(c, 'a'),
+        })
+      })
+
+      app.get('/signed', async (c) => {
+        return c.json({
+          all: (await getSignedCookie(c, 'secret ingredient'))['yummy_cookie'],
+          byKey: await getSignedCookie(c, 'secret ingredient', 'yummy_cookie'),
+        })
+      })
+
+      it('Should return the first value in both forms', async () => {
+        const req = new Request('http://localhost/cookie')
+        req.headers.set('Cookie', 'a=first; a=last')
+        const res = await app.request(req)
+        expect(await res.json()).toEqual({ all: 'first', byKey: 'first' })
+      })
+
+      it('Should return the first signed value in both forms', async () => {
+        const req = new Request('http://localhost/signed')
+        req.headers.set(
+          'Cookie',
+          'yummy_cookie=choco.UdFR2rBpS1GsHfGlUiYyMIdqxqwuEgplyQIgTJgpGWY%3D; yummy_cookie=strawberry.I9qAeGQOvWjCEJgRPmrw90JjYpnnX2C9zoOiGSxh1Ig%3D'
+        )
+        const res = await app.request(req)
+        expect(await res.json()).toEqual({ all: 'choco', byKey: 'choco' })
+      })
+    })
   })
 
   describe('Set cookie', () => {

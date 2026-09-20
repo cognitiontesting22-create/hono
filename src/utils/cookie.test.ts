@@ -51,6 +51,37 @@ describe('Parse cookie', () => {
     expect(cookie['no_such_cookie']).toBeUndefined()
   })
 
+  it('Should keep the first value for duplicate cookie names', () => {
+    const cookieString = 'a=first; b=other; a=last'
+    expect(parse(cookieString)['a']).toBe('first')
+    expect(parse(cookieString, 'a')['a']).toBe('first')
+    expect(parse(cookieString)['b']).toBe('other')
+  })
+
+  it('Should parse cookies whose names collide with Object.prototype members', () => {
+    const cookieString = 'toString=foo; hasOwnProperty=bar; constructor=baz'
+    const cookie: Cookie = parse(cookieString)
+    expect(cookie['toString']).toBe('foo')
+    expect(cookie['hasOwnProperty']).toBe('bar')
+    expect(cookie['constructor']).toBe('baz')
+    expect(parse(cookieString, 'toString')['toString']).toBe('foo')
+    expect(parse(cookieString, 'constructor')['constructor']).toBe('baz')
+
+    const duplicated = 'toString=first; toString=last'
+    expect(parse(duplicated)['toString']).toBe('first')
+    expect(parse(duplicated, 'toString')['toString']).toBe('first')
+  })
+
+  it('Should keep the first value for duplicate signed cookie names', async () => {
+    const secret = 'secret ingredient'
+    const cookieString =
+      'yummy_cookie=choco.UdFR2rBpS1GsHfGlUiYyMIdqxqwuEgplyQIgTJgpGWY%3D; yummy_cookie=strawberry.I9qAeGQOvWjCEJgRPmrw90JjYpnnX2C9zoOiGSxh1Ig%3D'
+    const all: SignedCookie = await parseSigned(cookieString, secret)
+    expect(all['yummy_cookie']).toBe('choco')
+    const one: SignedCookie = await parseSigned(cookieString, secret, 'yummy_cookie')
+    expect(one['yummy_cookie']).toBe('choco')
+  })
+
   it('Should parse cookies with no value', () => {
     const cookieString = 'yummy_cookie=; tasty_cookie = ; best_cookie= ; last_cookie=""'
     const cookie: Cookie = parse(cookieString)
