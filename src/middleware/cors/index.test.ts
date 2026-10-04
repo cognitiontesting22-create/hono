@@ -171,6 +171,37 @@ describe('CORS by Middleware', () => {
     ])
   })
 
+  it.each([
+    [true, 'OPTIONS', 'true', 'true'],
+    [false, 'OPTIONS', 'true', null],
+    [undefined, 'OPTIONS', 'true', null],
+    [true, 'OPTIONS', undefined, null],
+    [true, 'OPTIONS', 'false', null],
+    [true, 'OPTIONS', 'TRUE', null],
+    [true, 'OPTIONS', '', null],
+    [true, 'GET', 'true', null],
+    [true, 'POST', 'true', null],
+  ])(
+    'Private network access: option=%s, method=%s, request header=%s',
+    async (allowPrivateNetwork, method, requestHeader, expected) => {
+      const app = new Hono()
+      app.use('*', cors(allowPrivateNetwork === undefined ? undefined : { allowPrivateNetwork }))
+      app.all('/', (c) => c.text('ok'))
+
+      const headers = new Headers({
+        Origin: 'http://example.com',
+        'Access-Control-Request-Method': 'GET',
+      })
+      if (requestHeader !== undefined) {
+        headers.set('Access-Control-Request-Private-Network', requestHeader)
+      }
+      const res = await app.request('http://localhost/', { method, headers })
+
+      expect(res.status).toBe(method === 'OPTIONS' ? 204 : 200)
+      expect(res.headers.get('Access-Control-Allow-Private-Network')).toBe(expected)
+    }
+  )
+
   it('Preflight handles a large Access-Control-Request-Headers value', async () => {
     const req = new Request('https://localhost/api/abc', { method: 'OPTIONS' })
     req.headers.append('Access-Control-Request-Headers', 'x' + ' '.repeat(200000) + 'x')

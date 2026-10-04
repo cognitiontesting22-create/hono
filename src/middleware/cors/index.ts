@@ -16,6 +16,7 @@ type CORSOptions = {
       ) => Promise<string | undefined | null> | string | undefined | null)
   allowMethods?: string[] | ((origin: string, c: Context) => Promise<string[]> | string[])
   allowHeaders?: string[]
+  allowPrivateNetwork?: boolean
   maxAge?: number
   credentials?: boolean
   exposeHeaders?: string[]
@@ -30,6 +31,7 @@ type CORSOptions = {
  * @param {string | string[] | ((origin: string, c: Context) => Promise<string | undefined | null> | string | undefined | null)} [options.origin='*'] - The value of "Access-Control-Allow-Origin" CORS header.
  * @param {string[] | ((origin: string, c: Context) => Promise<string[]> | string[])} [options.allowMethods=['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH', 'QUERY']] - The value of "Access-Control-Allow-Methods" CORS header.
  * @param {string[]} [options.allowHeaders=[]] - The value of "Access-Control-Allow-Headers" CORS header.
+ * @param {boolean} [options.allowPrivateNetwork=false] - Allow preflight requests for private network access.
  * @param {number} [options.maxAge] - The value of "Access-Control-Max-Age" CORS header.
  * @param {boolean} [options.credentials] - The value of "Access-Control-Allow-Credentials" CORS header.
  * @param {string[]} [options.exposeHeaders=[]] - The value of "Access-Control-Expose-Headers" CORS header.
@@ -65,6 +67,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     origin: '*',
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH', 'QUERY'],
     allowHeaders: [],
+    allowPrivateNetwork: false,
     exposeHeaders: [],
     ...options,
   } satisfies CORSOptions
@@ -116,6 +119,13 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     }
 
     if (c.req.method === 'OPTIONS') {
+      if (
+        opts.allowPrivateNetwork &&
+        c.req.header('Access-Control-Request-Private-Network') === 'true'
+      ) {
+        set('Access-Control-Allow-Private-Network', 'true')
+      }
+
       if (opts.origin !== '*') {
         c.res.headers.append('Vary', 'Origin')
       }
